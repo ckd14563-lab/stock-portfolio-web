@@ -63,8 +63,9 @@ export async function GET() {
 
     return NextResponse.json(
       results
-        .filter((r): r is PromiseFulfilledResult<object> => r.status === "fulfilled")
-        .map(r => r.value)
+        .filter(r => r.status === "fulfilled")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map(r => (r as PromiseFulfilledResult<any>).value)
     );
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });

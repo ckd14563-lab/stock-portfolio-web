@@ -228,7 +228,7 @@ export default function SettingsPage() {
       <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>증권사별 API 지원 현황</h2>
       <div style={{ background: '#161B22', border: '1px solid #30363D', borderRadius: 14, padding: 16, marginBottom: 24 }}>
         {BROKERAGES.map((b, i) => (
-          <div key={b.name} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, paddingVertical: 12, paddingTop: i > 0 ? 12 : 0, borderTop: i > 0 ? '1px solid #30363D' : 'none', padding: `${i > 0 ? 12 : 0}px 0 12px` }}>
+          <div key={b.name} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, paddingTop: i > 0 ? 12 : 0, borderTop: i > 0 ? '1px solid #30363D' : 'none', padding: `${i > 0 ? 12 : 0}px 0 12px` }}>
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: b.color, marginTop: 4, flexShrink: 0 }} />
             <div>
               <div style={{ fontSize: 14, fontWeight: 600 }}>{b.name}</div>

@@ -71,10 +71,7 @@ export default function PortfolioPage() {
             principal += s.currency === 'USD' ? cost * rate : cost;
             valueKrw  += s.currency === 'USD' ? val  * rate : val;
           });
-          const token = getAppToken();
-          const hdrs: Record<string, string> = { 'Content-Type': 'application/json' };
-          if (token) hdrs['x-token'] = token;
-          fetch('/api/snapshots', { method: 'POST', headers: hdrs, body: JSON.stringify({ principal, valueKrw, usdKrw: rate }) }).catch(() => {});
+          fetch('/api/snapshots', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ principal, valueKrw, usdKrw: rate }) }).catch(() => {});
         } catch { /* ignore */ }
       }
       if (divRes.status === 'fulfilled') {
