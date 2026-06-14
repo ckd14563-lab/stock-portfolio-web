@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureTable } from '@/lib/db';
 
-function authorized(req: NextRequest): boolean {
-  const secret = (process.env.PERSONAL_TOKEN ?? '').trim();
-  if (!secret) return true;
-  return (req.headers.get('x-token') ?? '') === secret;
-}
-
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!authorized(req)) return NextResponse.json({ error: '인증 필요' }, { status: 401 });
   try {
     const db = await ensureTable();
     const { id } = await params;
@@ -24,7 +17,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!authorized(req)) return NextResponse.json({ error: '인증 필요' }, { status: 401 });
   try {
     const db = await ensureTable();
     const { id } = await params;

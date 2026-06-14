@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureTable } from '@/lib/db';
 
-function authorized(req: NextRequest): boolean {
-  const secret = (process.env.PERSONAL_TOKEN ?? '').trim();
-  if (!secret) return true;
-  return (req.headers.get('x-token') ?? '') === secret;
-}
-
 // KST 오늘 날짜 (YYYY-MM-DD)
 function todayKST() {
   return new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
@@ -28,7 +22,6 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!authorized(req)) return NextResponse.json({ error: '인증 필요' }, { status: 401 });
   try {
     const { principal, valueKrw, usdKrw } = await req.json();
     const date = todayKST();

@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureTable, rowToAccount } from '@/lib/db';
 
-function authorized(req: NextRequest): boolean {
-  const secret = (process.env.PERSONAL_TOKEN ?? '').trim();
-  if (!secret) return true;
-  return (req.headers.get('x-token') ?? '') === secret;
-}
-
 export async function GET() {
   try {
     const db = await ensureTable();
@@ -18,7 +12,6 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!authorized(req)) return NextResponse.json({ error: '인증 필요' }, { status: 401 });
   try {
     const db = await ensureTable();
     const data = await req.json();
