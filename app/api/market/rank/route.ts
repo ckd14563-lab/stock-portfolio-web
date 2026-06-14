@@ -212,5 +212,5 @@ export async function GET(req: NextRequest) {
       currency:  region === 'KR' ? 'KRW' : 'USD',
     }));
 
-  return NextResponse.json({ _v: 4, _len: universe.length, items: ranked });
+  return NextResponse.json(ranked);
 }
