@@ -151,22 +151,38 @@ export default function MarketPage() {
     setCapLoading(true);
     setCapError('');
     try {
-      const res  = await fetch(`/api/market/rank?region=${region}`);
-      const json = await res.json();
-      if (Array.isArray(json)) {
-        if (region === 'US') { setUsCapData(json as CapItem[]); setUsCapLoaded(true); }
-        else                  { setKrCapData(json as CapItem[]); setKrCapLoaded(true); }
-      } else {
-        setCapError(json?.error ?? '데이터를 불러올 수 없습니다');
-        if (region === 'US') setUsCapLoaded(true);
-        else setKrCapLoaded(true);
+      // 1) 순위·시총 목록 먼저 (즉시 반환)
+      const rankRes = await fetch(`/api/market/rank?region=${region}`);
+      const rankJson = await rankRes.json();
+      if (!Array.isArray(rankJson) || rankJson.length === 0) {
+        setCapError(rankJson?.error ?? '데이터를 불러올 수 없습니다');
+        if (region === 'US') setUsCapLoaded(true); else setKrCapLoaded(true);
+        return;
+      }
+      const ranked = rankJson as CapItem[];
+
+      // 2) 가격·등락 별도 수신 (/api/prices, v8 chart 사용)
+      const symbols = ranked.map(r => r.symbol).join(',');
+      try {
+        const priceRes = await fetch(`/api/prices?symbols=${encodeURIComponent(symbols)}`);
+        const priceMap: Record<string, { currentPrice: number; changeAmount: number; changePercent: number; currency: string }> = await priceRes.json();
+        const withPrices = ranked.map(r => {
+          const p = priceMap[r.symbol];
+          return p ? { ...r, price: p.currentPrice, change: p.changeAmount, changePct: p.changePercent, currency: p.currency || r.currency } : r;
+        });
+        if (region === 'US') { setUsCapData(withPrices); setUsCapLoaded(true); }
+        else                  { setKrCapData(withPrices); setKrCapLoaded(true); }
+      } catch {
+        // 가격 수신 실패해도 순위만이라도 표시
+        if (region === 'US') { setUsCapData(ranked); setUsCapLoaded(true); }
+        else                  { setKrCapData(ranked); setKrCapLoaded(true); }
       }
     } catch (e) {
       setCapError((e as Error).message);
-      if (region === 'US') setUsCapLoaded(true);
-      else setKrCapLoaded(true);
+      if (region === 'US') setUsCapLoaded(true); else setKrCapLoaded(true);
+    } finally {
+      setCapLoading(false);
     }
-    finally { setCapLoading(false); }
   }, []);
 
   const loadMarketNews = useCallback(async () => {
