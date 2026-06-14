@@ -19,10 +19,17 @@ interface Props {
   dividend?: DividendInfo;
   onEdit: (s: Stock) => void;
   onDelete: (id: string) => void;
+  showKrw?: boolean;
+  usdKrw?: number;
 }
 
-export default function StockCard({ stock, price, dividend, onEdit, onDelete }: Props) {
+function fmtKrw(n: number) {
+  return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 }).format(n);
+}
+
+export default function StockCard({ stock, price, dividend, onEdit, onDelete, showKrw = false, usdKrw = 1380 }: Props) {
   const { name, ticker, market, shares, avgPrice, currency, source, brokerage } = stock;
+  const isUsd = currency === 'USD';
   const totalCost    = shares * avgPrice;
   const currentValue = price ? shares * price.currentPrice : null;
   const profitAmt    = currentValue != null ? currentValue - totalCost : null;
@@ -35,9 +42,10 @@ export default function StockCard({ stock, price, dividend, onEdit, onDelete }: 
   const bColor = (brokerage && BROKERAGE_COLORS[brokerage]) || '#8B949E';
   const marketLabel = market === 'US' ? '🇺🇸 NYSE/NASDAQ' : market === 'KS' ? '🇰🇷 KOSPI' : '🇰🇷 KOSDAQ';
 
-  // 배당
   const hasDividend = dividend && dividend.annualDividend > 0;
   const annualDivIncome = hasDividend ? dividend!.annualDividend * shares : 0;
+
+  const showConv = showKrw && isUsd;
 
   return (
     <div style={{ background: '#161B22', border: '1px solid #30363D', borderRadius: 14, overflow: 'hidden', marginBottom: 12 }}>
@@ -65,6 +73,9 @@ export default function StockCard({ stock, price, dividend, onEdit, onDelete }: 
               <>
                 <div style={{ fontSize: 11, color: '#8B949E', marginTop: 4 }}>현재가</div>
                 <div style={{ fontSize: 17, fontWeight: 700, marginTop: 2 }}>{fmtCurrency(price.currentPrice, currency)}</div>
+                {showConv && (
+                  <div style={{ fontSize: 12, color: '#8B949E', marginTop: 2 }}>≈ {fmtKrw(price.currentPrice * usdKrw)}</div>
+                )}
               </>
             )}
             {!price && <div style={{ color: '#8B949E', fontSize: 12 }}>조회중...</div>}
@@ -81,6 +92,9 @@ export default function StockCard({ stock, price, dividend, onEdit, onDelete }: 
             <div key={l} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 11, color: '#8B949E', marginBottom: 4 }}>{l}</div>
               <div style={{ fontSize: 13, fontWeight: 600 }}>{v}</div>
+              {showConv && l === '원금' && (
+                <div style={{ fontSize: 11, color: '#8B949E', marginTop: 2 }}>{fmtKrw(totalCost * usdKrw)}</div>
+              )}
             </div>
           ))}
         </div>
@@ -90,13 +104,25 @@ export default function StockCard({ stock, price, dividend, onEdit, onDelete }: 
           <div style={{ borderTop: '1px solid #30363D', paddingTop: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
               <span style={{ fontSize: 12, color: '#8B949E' }}>평가금액</span>
-              <span style={{ fontSize: 14, fontWeight: 600 }}>{fmtCurrency(currentValue, currency)}</span>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: 14, fontWeight: 600 }}>{fmtCurrency(currentValue, currency)}</span>
+                {showConv && (
+                  <div style={{ fontSize: 12, color: '#8B949E', marginTop: 2 }}>≈ {fmtKrw(currentValue * usdKrw)}</div>
+                )}
+              </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 12, color: '#8B949E' }}>수익금 / 수익률</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: profitColor }}>
-                {profitAmt! >= 0 ? '+' : ''}{fmtCurrency(profitAmt!, currency)} ({fmtPercent(profitPct!)})
-              </span>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: profitColor }}>
+                  {profitAmt! >= 0 ? '+' : ''}{fmtCurrency(profitAmt!, currency)} ({fmtPercent(profitPct!)})
+                </span>
+                {showConv && (
+                  <div style={{ fontSize: 12, color: profitColor, marginTop: 2 }}>
+                    ≈ {profitAmt! >= 0 ? '+' : ''}{fmtKrw(profitAmt! * usdKrw)}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -110,7 +136,12 @@ export default function StockCard({ stock, price, dividend, onEdit, onDelete }: 
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: dividend!.exDate ? 4 : 0 }}>
               <span style={{ fontSize: 12, color: '#8B949E' }}>연간 배당(예상)</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#FFD700' }}>+{fmtCurrency(annualDivIncome, currency)}</span>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#FFD700' }}>+{fmtCurrency(annualDivIncome, currency)}</span>
+                {showConv && isUsd && (
+                  <div style={{ fontSize: 11, color: '#8B949E', marginTop: 2 }}>≈ +{fmtKrw(annualDivIncome * usdKrw)}</div>
+                )}
+              </div>
             </div>
             {dividend!.exDate && (
               <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>배당기준일 {dividend!.exDate}</div>

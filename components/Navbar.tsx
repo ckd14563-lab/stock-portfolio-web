@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 
 const tabs = [
   { href: '/',        label: '포트폴리오', icon: '📈' },
-  { href: '/news',    label: '뉴스',      icon: '📰' },
+  { href: '/history', label: '추이',      icon: '📊' },
   { href: '/market',  label: '시장',      icon: '🌐' },
   { href: '/settings',label: '설정',      icon: '⚙️' },
 ];

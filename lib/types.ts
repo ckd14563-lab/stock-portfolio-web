@@ -1,3 +1,11 @@
+export interface Account {
+  id: string;
+  name: string;
+  brokerage: string;
+  color: string;
+  createdAt: number;
+}
+
 export interface Stock {
   id: string;
   name: string;
@@ -8,6 +16,7 @@ export interface Stock {
   currency: 'KRW' | 'USD';
   source: 'manual' | 'kis';
   brokerage: string;
+  accountId: string;
   createdAt: number;
 }
 

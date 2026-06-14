@@ -13,10 +13,11 @@ export async function POST(req: NextRequest) {
   const id = Date.now().toString();
   const createdAt = Date.now();
   await db.execute({
-    sql: `INSERT INTO stocks (id, name, ticker, market, shares, avg_price, currency, source, brokerage, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT INTO stocks (id, name, ticker, market, shares, avg_price, currency, source, brokerage, account_id, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [id, data.name, data.ticker, data.market, data.shares, data.avgPrice,
-           data.currency, data.source ?? 'manual', data.brokerage ?? '', createdAt],
+           data.currency, data.source ?? 'manual', data.brokerage ?? '',
+           data.accountId ?? '', createdAt],
   });
   return NextResponse.json({ id, createdAt });
 }

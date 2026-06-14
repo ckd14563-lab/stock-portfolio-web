@@ -47,7 +47,13 @@ async function fetchOverseas(token: string, appKey: string, appSecret: string, c
 
 export async function POST(req: NextRequest) {
   try {
-    const { appKey, appSecret, cano, acntPrdtCd, isVirtual } = await req.json();
+    const { appKey, appSecret, cano, acntPrdtCd, isVirtual, testOnly } = await req.json();
+
+    // 연결 테스트만 요청한 경우
+    if (testOnly) {
+      await getToken(appKey, appSecret, isVirtual);
+      return NextResponse.json({ ok: true });
+    }
     const token = await getToken(appKey, appSecret, isVirtual);
     const [domResult, ovrResult] = await Promise.allSettled([
       fetchDomestic(token, appKey, appSecret, cano, acntPrdtCd, isVirtual),
@@ -71,14 +77,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
-  const appKey = req.nextUrl.searchParams.get('appKey') ?? '';
-  const appSecret = req.nextUrl.searchParams.get('appSecret') ?? '';
-  const isVirtual = req.nextUrl.searchParams.get('isVirtual') === 'true';
-  try {
-    await getToken(appKey, appSecret, isVirtual);
-    return NextResponse.json({ ok: true });
-  } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
-  }
+export async function GET() {
+  return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
 }

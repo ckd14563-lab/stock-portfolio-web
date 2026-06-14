@@ -1,0 +1,261 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+// ── 미국 TOP 100 (시총 내림차순 고정 순서, 2025-06 기준) ────────────────
+// 시총은 근사값(1조 단위), 가격/등락은 v8 API에서 실시간 수신
+const US_UNIVERSE: { symbol: string; name: string; cap: number }[] = [
+  { symbol: 'NVDA',  name: 'NVIDIA',               cap: 3_350_000_000_000 },
+  { symbol: 'MSFT',  name: 'Microsoft',             cap: 3_100_000_000_000 },
+  { symbol: 'AAPL',  name: 'Apple',                 cap: 3_000_000_000_000 },
+  { symbol: 'AMZN',  name: 'Amazon',                cap: 2_300_000_000_000 },
+  { symbol: 'GOOGL', name: 'Alphabet (A)',           cap: 2_100_000_000_000 },
+  { symbol: 'META',  name: 'Meta Platforms',         cap: 1_700_000_000_000 },
+  { symbol: 'TSLA',  name: 'Tesla',                  cap: 1_050_000_000_000 },
+  { symbol: 'BRK-B', name: 'Berkshire Hathaway',     cap:   990_000_000_000 },
+  { symbol: 'AVGO',  name: 'Broadcom',               cap:   950_000_000_000 },
+  { symbol: 'LLY',   name: 'Eli Lilly',              cap:   820_000_000_000 },
+  { symbol: 'JPM',   name: 'JPMorgan Chase',          cap:   780_000_000_000 },
+  { symbol: 'V',     name: 'Visa',                   cap:   650_000_000_000 },
+  { symbol: 'UNH',   name: 'UnitedHealth Group',     cap:   600_000_000_000 },
+  { symbol: 'XOM',   name: 'ExxonMobil',             cap:   545_000_000_000 },
+  { symbol: 'MA',    name: 'Mastercard',             cap:   500_000_000_000 },
+  { symbol: 'COST',  name: 'Costco Wholesale',       cap:   430_000_000_000 },
+  { symbol: 'ORCL',  name: 'Oracle',                 cap:   430_000_000_000 },
+  { symbol: 'PG',    name: 'Procter & Gamble',       cap:   390_000_000_000 },
+  { symbol: 'WMT',   name: 'Walmart',                cap:   770_000_000_000 },
+  { symbol: 'HD',    name: 'Home Depot',             cap:   360_000_000_000 },
+  { symbol: 'JNJ',   name: 'Johnson & Johnson',      cap:   380_000_000_000 },
+  { symbol: 'ABBV',  name: 'AbbVie',                 cap:   350_000_000_000 },
+  { symbol: 'BAC',   name: 'Bank of America',        cap:   340_000_000_000 },
+  { symbol: 'CRM',   name: 'Salesforce',             cap:   310_000_000_000 },
+  { symbol: 'AMD',   name: 'Advanced Micro Devices', cap:   300_000_000_000 },
+  { symbol: 'NFLX',  name: 'Netflix',                cap:   400_000_000_000 },
+  { symbol: 'KO',    name: 'Coca-Cola',              cap:   275_000_000_000 },
+  { symbol: 'MCD',   name: "McDonald's",             cap:   220_000_000_000 },
+  { symbol: 'PEP',   name: 'PepsiCo',               cap:   210_000_000_000 },
+  { symbol: 'TMO',   name: 'Thermo Fisher',          cap:   200_000_000_000 },
+  { symbol: 'ADBE',  name: 'Adobe',                  cap:   205_000_000_000 },
+  { symbol: 'IBM',   name: 'IBM',                    cap:   250_000_000_000 },
+  { symbol: 'CSCO',  name: 'Cisco',                  cap:   200_000_000_000 },
+  { symbol: 'GE',    name: 'GE Aerospace',           cap:   245_000_000_000 },
+  { symbol: 'CAT',   name: 'Caterpillar',            cap:   195_000_000_000 },
+  { symbol: 'MRK',   name: 'Merck',                  cap:   205_000_000_000 },
+  { symbol: 'CVX',   name: 'Chevron',                cap:   265_000_000_000 },
+  { symbol: 'ABT',   name: 'Abbott Labs',            cap:   195_000_000_000 },
+  { symbol: 'TXN',   name: 'Texas Instruments',      cap:   180_000_000_000 },
+  { symbol: 'AMGN',  name: 'Amgen',                  cap:   170_000_000_000 },
+  { symbol: 'WFC',   name: 'Wells Fargo',            cap:   230_000_000_000 },
+  { symbol: 'VZ',    name: 'Verizon',                cap:   160_000_000_000 },
+  { symbol: 'RTX',   name: 'RTX Corporation',        cap:   185_000_000_000 },
+  { symbol: 'PFE',   name: 'Pfizer',                 cap:   150_000_000_000 },
+  { symbol: 'NOW',   name: 'ServiceNow',             cap:   240_000_000_000 },
+  { symbol: 'ACN',   name: 'Accenture',              cap:   195_000_000_000 },
+  { symbol: 'INTU',  name: 'Intuit',                 cap:   175_000_000_000 },
+  { symbol: 'ISRG',  name: 'Intuitive Surgical',     cap:   230_000_000_000 },
+  { symbol: 'AXP',   name: 'American Express',       cap:   220_000_000_000 },
+  { symbol: 'MS',    name: 'Morgan Stanley',         cap:   200_000_000_000 },
+  { symbol: 'LRCX',  name: 'Lam Research',           cap:   100_000_000_000 },
+  { symbol: 'KLAC',  name: 'KLA Corp',               cap:   105_000_000_000 },
+  { symbol: 'AMAT',  name: 'Applied Materials',      cap:   135_000_000_000 },
+  { symbol: 'QCOM',  name: 'Qualcomm',               cap:   175_000_000_000 },
+  { symbol: 'MU',    name: 'Micron Technology',      cap:   115_000_000_000 },
+  { symbol: 'GS',    name: 'Goldman Sachs',          cap:   185_000_000_000 },
+  { symbol: 'PANW',  name: 'Palo Alto Networks',     cap:   120_000_000_000 },
+  { symbol: 'SPGI',  name: 'S&P Global',             cap:   150_000_000_000 },
+  { symbol: 'BLK',   name: 'BlackRock',              cap:   150_000_000_000 },
+  { symbol: 'REGN',  name: 'Regeneron',              cap:   105_000_000_000 },
+  { symbol: 'VRTX',  name: 'Vertex Pharma',          cap:   125_000_000_000 },
+  { symbol: 'ADI',   name: 'Analog Devices',         cap:   100_000_000_000 },
+  { symbol: 'NEE',   name: 'NextEra Energy',         cap:   140_000_000_000 },
+  { symbol: 'UPS',   name: 'UPS',                    cap:   100_000_000_000 },
+  { symbol: 'SYK',   name: 'Stryker',                cap:   130_000_000_000 },
+  { symbol: 'ETN',   name: 'Eaton',                  cap:   155_000_000_000 },
+  { symbol: 'BMY',   name: 'Bristol-Myers Squibb',   cap:    95_000_000_000 },
+  { symbol: 'CI',    name: 'Cigna Group',            cap:    80_000_000_000 },
+  { symbol: 'LMT',   name: 'Lockheed Martin',        cap:   125_000_000_000 },
+  { symbol: 'GILD',  name: 'Gilead Sciences',        cap:    90_000_000_000 },
+  { symbol: 'PLD',   name: 'Prologis',               cap:    95_000_000_000 },
+  { symbol: 'AMT',   name: 'American Tower',         cap:    85_000_000_000 },
+  { symbol: 'TMUS',  name: 'T-Mobile US',            cap:   265_000_000_000 },
+  { symbol: 'ELV',   name: 'Elevance Health',        cap:    90_000_000_000 },
+  { symbol: 'HUM',   name: 'Humana',                 cap:    35_000_000_000 },
+  { symbol: 'CVS',   name: 'CVS Health',             cap:    70_000_000_000 },
+  { symbol: 'ICE',   name: 'ICE',                    cap:   100_000_000_000 },
+  { symbol: 'CME',   name: 'CME Group',              cap:    80_000_000_000 },
+  { symbol: 'SCHW',  name: 'Charles Schwab',         cap:   130_000_000_000 },
+  { symbol: 'COF',   name: 'Capital One',            cap:    80_000_000_000 },
+  { symbol: 'TGT',   name: 'Target',                 cap:    70_000_000_000 },
+  { symbol: 'SBUX',  name: 'Starbucks',              cap:    90_000_000_000 },
+  { symbol: 'MMC',   name: 'Marsh McLennan',         cap:    95_000_000_000 },
+  { symbol: 'SHW',   name: 'Sherwin-Williams',       cap:    95_000_000_000 },
+  { symbol: 'HON',   name: 'Honeywell',              cap:   130_000_000_000 },
+  { symbol: 'FDX',   name: 'FedEx',                  cap:    60_000_000_000 },
+  { symbol: 'UNP',   name: 'Union Pacific',          cap:   140_000_000_000 },
+  { symbol: 'CTAS',  name: 'Cintas',                 cap:    80_000_000_000 },
+  { symbol: 'MCO',   name: "Moody's",                cap:    90_000_000_000 },
+  { symbol: 'IDXX',  name: "IDEXX Labs",             cap:    45_000_000_000 },
+  { symbol: 'DUK',   name: 'Duke Energy',            cap:    90_000_000_000 },
+  { symbol: 'SO',    name: 'Southern Company',       cap:    95_000_000_000 },
+  { symbol: 'SLB',   name: 'SLB',                    cap:    55_000_000_000 },
+  { symbol: 'ADP',   name: 'ADP',                    cap:   105_000_000_000 },
+  { symbol: 'ITW',   name: 'Illinois Tool Works',    cap:    75_000_000_000 },
+  { symbol: 'NOC',   name: 'Northrop Grumman',       cap:    70_000_000_000 },
+  { symbol: 'GD',    name: 'General Dynamics',       cap:    80_000_000_000 },
+  { symbol: 'DE',    name: 'Deere & Company',        cap:   120_000_000_000 },
+  { symbol: 'ZTS',   name: 'Zoetis',                 cap:    70_000_000_000 },
+  { symbol: 'CB',    name: 'Chubb',                  cap:   105_000_000_000 },
+  { symbol: 'BSX',   name: 'Boston Scientific',      cap:   130_000_000_000 },
+  { symbol: 'APP',   name: 'Applovin',               cap:   130_000_000_000 },
+  { symbol: 'PLTR',  name: 'Palantir',               cap:   280_000_000_000 },
+];
+
+// ── 한국 TOP (시총 내림차순, 2025-06 기준, 원 단위) ─────────────────────
+const KR_UNIVERSE: { symbol: string; name: string; cap: number }[] = [
+  { symbol: '005930.KS', name: '삼성전자',         cap: 330_000_000_000_000 },
+  { symbol: '000660.KS', name: 'SK하이닉스',       cap: 140_000_000_000_000 },
+  { symbol: '207940.KS', name: '삼성바이오로직스', cap:  60_000_000_000_000 },
+  { symbol: '373220.KS', name: 'LG에너지솔루션',  cap:  55_000_000_000_000 },
+  { symbol: '005380.KS', name: '현대차',           cap:  50_000_000_000_000 },
+  { symbol: '068270.KS', name: '셀트리온',         cap:  42_000_000_000_000 },
+  { symbol: '000270.KS', name: '기아',             cap:  38_000_000_000_000 },
+  { symbol: '035420.KS', name: 'NAVER',            cap:  30_000_000_000_000 },
+  { symbol: '105560.KS', name: 'KB금융',           cap:  28_000_000_000_000 },
+  { symbol: '055550.KS', name: '신한지주',         cap:  26_000_000_000_000 },
+  { symbol: '051910.KS', name: 'LG화학',           cap:  22_000_000_000_000 },
+  { symbol: '035720.KS', name: '카카오',           cap:  20_000_000_000_000 },
+  { symbol: '006400.KS', name: '삼성SDI',          cap:  18_000_000_000_000 },
+  { symbol: '086790.KS', name: '하나금융지주',     cap:  18_000_000_000_000 },
+  { symbol: '316140.KS', name: '우리금융지주',     cap:  11_000_000_000_000 },
+  { symbol: '028260.KS', name: '삼성물산',         cap:  20_000_000_000_000 },
+  { symbol: '005490.KS', name: 'POSCO홀딩스',      cap:  18_000_000_000_000 },
+  { symbol: '012330.KS', name: '현대모비스',       cap:  17_000_000_000_000 },
+  { symbol: '034730.KS', name: 'SK',               cap:  12_000_000_000_000 },
+  { symbol: '017670.KS', name: 'SK텔레콤',        cap:  11_000_000_000_000 },
+  { symbol: '030200.KS', name: 'KT',               cap:   8_000_000_000_000 },
+  { symbol: '096770.KS', name: 'SK이노베이션',     cap:  13_000_000_000_000 },
+  { symbol: '018260.KS', name: '삼성에스디에스',   cap:   9_000_000_000_000 },
+  { symbol: '010130.KS', name: '고려아연',         cap:  12_000_000_000_000 },
+  { symbol: '009150.KS', name: '삼성전기',         cap:   7_000_000_000_000 },
+  { symbol: '011200.KS', name: 'HMM',              cap:   7_000_000_000_000 },
+  { symbol: '036570.KS', name: 'NCsoft',           cap:   4_000_000_000_000 },
+  { symbol: '251270.KS', name: '넷마블',           cap:   4_000_000_000_000 },
+  { symbol: '066570.KS', name: 'LG전자',           cap:  11_000_000_000_000 },
+  { symbol: '000810.KS', name: '삼성화재',         cap:  11_000_000_000_000 },
+  { symbol: '003550.KS', name: 'LG',               cap:   9_000_000_000_000 },
+  { symbol: '015760.KS', name: '한국전력',         cap:   8_000_000_000_000 },
+  { symbol: '047810.KS', name: '한국항공우주',     cap:   5_000_000_000_000 },
+  { symbol: '000720.KS', name: '현대건설',         cap:   4_000_000_000_000 },
+  { symbol: '009830.KS', name: '한화솔루션',       cap:   4_000_000_000_000 },
+  { symbol: '138040.KS', name: '메리츠금융지주',   cap:  12_000_000_000_000 },
+  { symbol: '078930.KS', name: 'GS',               cap:   4_000_000_000_000 },
+  { symbol: '011070.KS', name: 'LG이노텍',         cap:   5_000_000_000_000 },
+  { symbol: '010950.KS', name: 'S-Oil',            cap:   5_000_000_000_000 },
+  { symbol: '004020.KS', name: '현대제철',         cap:   3_000_000_000_000 },
+  { symbol: '003490.KS', name: '대한항공',         cap:   7_000_000_000_000 },
+  { symbol: '010140.KS', name: '삼성중공업',       cap:   6_000_000_000_000 },
+  { symbol: '006360.KS', name: 'GS건설',           cap:   2_000_000_000_000 },
+  { symbol: '139480.KS', name: '이마트',           cap:   3_000_000_000_000 },
+  { symbol: '004170.KS', name: '신세계',           cap:   2_000_000_000_000 },
+  { symbol: '000100.KS', name: '유한양행',         cap:   6_000_000_000_000 },
+  { symbol: '033780.KS', name: 'KT&G',             cap:   8_000_000_000_000 },
+  { symbol: '000080.KS', name: '하이트진로',       cap:   1_500_000_000_000 },
+  { symbol: '024110.KS', name: '기업은행',         cap:   8_000_000_000_000 },
+  { symbol: '180640.KS', name: '한화에어로스페이스', cap: 30_000_000_000_000 },
+  { symbol: '034020.KS', name: '두산에너빌리티',   cap:   6_000_000_000_000 },
+  { symbol: '271560.KS', name: '오리온',           cap:   3_000_000_000_000 },
+  { symbol: '282330.KS', name: 'BGF리테일',        cap:   2_000_000_000_000 },
+  { symbol: '016360.KS', name: '삼성증권',         cap:   5_000_000_000_000 },
+  { symbol: '032640.KS', name: 'LG유플러스',      cap:   4_000_000_000_000 },
+  { symbol: '267250.KS', name: '현대重공업',       cap:  15_000_000_000_000 },
+  { symbol: '001040.KS', name: 'CJ',               cap:   2_000_000_000_000 },
+  { symbol: '036460.KS', name: '한국가스공사',     cap:   2_000_000_000_000 },
+  { symbol: '029780.KS', name: '삼성카드',         cap:   3_000_000_000_000 },
+  { symbol: '097950.KS', name: 'CJ제일제당',       cap:   4_000_000_000_000 },
+  { symbol: '377300.KS', name: '카카오페이',       cap:   4_000_000_000_000 },
+  { symbol: '352820.KS', name: '하이브',           cap:   5_000_000_000_000 },
+  { symbol: '003670.KS', name: 'POSCO퓨처엠',      cap:   5_000_000_000_000 },
+  { symbol: '032830.KS', name: '삼성생명',         cap:   8_000_000_000_000 },
+  { symbol: '002380.KS', name: 'KCC',              cap:   2_000_000_000_000 },
+  { symbol: '086280.KS', name: '현대글로비스',     cap:   6_000_000_000_000 },
+  { symbol: '023530.KS', name: '롯데쇼핑',         cap:   2_000_000_000_000 },
+  { symbol: '088980.KS', name: '맥쿼리인프라',     cap:   3_000_000_000_000 },
+  { symbol: '011790.KS', name: 'SKC',              cap:   2_000_000_000_000 },
+  { symbol: '001450.KS', name: '현대해상',         cap:   4_000_000_000_000 },
+  { symbol: '010060.KS', name: 'OCI홀딩스',        cap:   2_000_000_000_000 },
+  { symbol: '009540.KS', name: 'HD한국조선해양',   cap:  18_000_000_000_000 },
+  { symbol: '004490.KS', name: '세아베스틸',       cap:   1_000_000_000_000 },
+  { symbol: '000210.KS', name: 'DL',               cap:   1_500_000_000_000 },
+  { symbol: '006280.KS', name: '녹십자',           cap:   2_000_000_000_000 },
+  { symbol: '007310.KS', name: '오뚜기',           cap:   1_500_000_000_000 },
+  { symbol: '003600.KS', name: 'SK케미칼',         cap:   1_000_000_000_000 },
+  { symbol: '005070.KS', name: '코스모신소재',     cap:   1_000_000_000_000 },
+  { symbol: '196170.KQ', name: '알테오젠',         cap:  15_000_000_000_000 },
+  { symbol: '091990.KQ', name: '셀트리온헬스케어', cap:   5_000_000_000_000 },
+  { symbol: '035760.KQ', name: 'CJ ENM',           cap:   2_000_000_000_000 },
+  { symbol: '145720.KS', name: '덴티움',           cap:   1_000_000_000_000 },
+  { symbol: '002350.KS', name: '넥센타이어',       cap:   1_000_000_000_000 },
+  { symbol: '000990.KS', name: 'DB하이텍',         cap:   1_500_000_000_000 },
+];
+
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+
+export const dynamic = 'force-dynamic';
+
+export async function GET(req: NextRequest) {
+  const region   = (req.nextUrl.searchParams.get('region') ?? 'US') as 'US' | 'KR';
+  const universe = region === 'KR' ? KR_UNIVERSE : US_UNIVERSE;
+
+  // v8 chart API로 가격·등락 실시간 수신 (크럼 불필요, 항상 동작)
+  const BATCH = 10;
+  const batches: typeof universe[] = [];
+  for (let i = 0; i < universe.length; i += BATCH) batches.push(universe.slice(i, i + BATCH));
+
+  const priceMap = new Map<string, { price: number; change: number; changePct: number; currency: string }>();
+
+  await Promise.allSettled(
+    batches.map(async (batch) => {
+      await Promise.allSettled(
+        batch.map(async (item) => {
+          try {
+            const res = await fetch(
+              `https://query1.finance.yahoo.com/v8/finance/chart/${item.symbol}?interval=1d&range=1d`,
+              { headers: { 'User-Agent': UA } }
+            );
+            const json = await res.json();
+            const meta = json?.chart?.result?.[0]?.meta;
+            if (!meta) return;
+            const prev    = meta.previousClose ?? meta.chartPreviousClose ?? 0;
+            const current = meta.regularMarketPrice ?? 0;
+            priceMap.set(item.symbol, {
+              price:     current,
+              change:    current - prev,
+              changePct: prev > 0 ? ((current - prev) / prev) * 100 : 0,
+              currency:  meta.currency ?? (region === 'KR' ? 'KRW' : 'USD'),
+            });
+          } catch { /* ignore */ }
+        })
+      );
+    })
+  );
+
+  // 시총 내림차순 정렬 후 순위 부여
+  const ranked = [...universe]
+    .sort((a, b) => b.cap - a.cap)
+    .slice(0, 100)
+    .map((item, i) => {
+      const p = priceMap.get(item.symbol);
+      return {
+        rank:      i + 1,
+        symbol:    item.symbol,
+        name:      item.name,
+        price:     p?.price     ?? 0,
+        change:    p?.change    ?? 0,
+        changePct: p?.changePct ?? 0,
+        marketCap: item.cap,           // 근사값 (2025-06 기준)
+        currency:  p?.currency ?? (region === 'KR' ? 'KRW' : 'USD'),
+      };
+    });
+
+  return NextResponse.json(ranked, {
+    headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate=60' },
+  });
+}

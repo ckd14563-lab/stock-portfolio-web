@@ -49,3 +49,5 @@ t_news.cjs
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel
