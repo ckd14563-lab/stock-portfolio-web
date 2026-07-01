@@ -184,17 +184,26 @@ export default function PortfolioPage() {
     });
   }, [stocks, accounts]);
 
-  // ── 종목별 손익 요약 ──
+  // ── 종목별 손익 요약 (동일 티커 합산) ──
   const stocksSummary = useMemo(() => {
-    return stocks.map(s => {
-      const cost = s.shares * s.avgPrice;
-      const cur = prices[s.id]?.currentPrice ?? null;
-      const value = cur != null ? s.shares * cur : null;
+    const groups: Record<string, { ticker: string; market: string; name: string; currency: string; totalShares: number; totalCost: number }> = {};
+    stocks.forEach(s => {
+      const key = `${s.ticker}_${s.market}`;
+      if (!groups[key]) groups[key] = { ticker: s.ticker, market: s.market, name: s.name, currency: s.currency, totalShares: 0, totalCost: 0 };
+      groups[key].totalShares += s.shares;
+      groups[key].totalCost   += s.shares * s.avgPrice;
+    });
+    return Object.values(groups).map(g => {
+      const avgPrice = g.totalCost / g.totalShares;
+      const sample = stocks.find(s => s.ticker === g.ticker && s.market === g.market);
+      const cur = sample ? (prices[sample.id]?.currentPrice ?? null) : null;
+      const cost = g.totalCost;
+      const value = cur != null ? g.totalShares * cur : null;
       const profitAmt = value != null ? value - cost : null;
       const profitPct = profitAmt != null && cost > 0 ? (profitAmt / cost) * 100 : null;
-      const valueKrw = value != null ? toKrw(value, s.currency) : null;
-      const profitKrw = profitAmt != null ? toKrw(profitAmt, s.currency) : null;
-      return { ...s, cost, value, profitAmt, profitPct, valueKrw, profitKrw };
+      const valueKrw  = value     != null ? toKrw(value,     g.currency) : null;
+      const profitKrw = profitAmt != null ? toKrw(profitAmt, g.currency) : null;
+      return { id: `${g.ticker}_${g.market}`, ticker: g.ticker, market: g.market, name: g.name, currency: g.currency, shares: g.totalShares, avgPrice, cost, value, profitAmt, profitPct, valueKrw, profitKrw };
     }).sort((a, b) => (b.valueKrw ?? 0) - (a.valueKrw ?? 0));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stocks, prices, usdKrw]);

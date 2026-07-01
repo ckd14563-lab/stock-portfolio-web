@@ -236,9 +236,13 @@ export default function HistoryPage() {
   }, [divData, usdKrwRate]);
 
   const latest    = snapshots[snapshots.length - 1];
+  const prev      = snapshots.length >= 2 ? snapshots[snapshots.length - 2] : null;
   const profit    = latest ? latest.valueKrw - latest.principal : 0;
   const profitPct = latest?.principal > 0 ? (profit / latest.principal) * 100 : 0;
   const pc        = profit >= 0 ? '#00C853' : '#FF1744';
+  const dailyChange = prev != null ? latest.valueKrw - prev.valueKrw : null;
+  const dailyPct    = prev != null && prev.valueKrw > 0 ? ((latest.valueKrw - prev.valueKrw) / prev.valueKrw) * 100 : null;
+  const dpc         = dailyChange != null && dailyChange >= 0 ? '#00C853' : '#FF1744';
   const lineData  = aggregate(snapshots, period).map(s => ({
     label: fmtLabel(s.date, period), 원금: Math.round(s.principal), 평가금액: Math.round(s.valueKrw),
   }));
@@ -272,11 +276,27 @@ export default function HistoryPage() {
                 <div><div style={{ fontSize: 11, color: '#8B949E', marginBottom: 3 }}>총 원금</div><div style={{ fontSize: 16, fontWeight: 700 }}>{fmtKrw(latest.principal)}</div></div>
                 <div style={{ textAlign: 'right' }}><div style={{ fontSize: 11, color: '#8B949E', marginBottom: 3 }}>총 평가금액</div><div style={{ fontSize: 16, fontWeight: 700, color: '#00C853' }}>{fmtKrw(latest.valueKrw)}</div></div>
               </div>
-              <div style={{ borderTop: '1px solid #30363D', paddingTop: 12 }}>
-                <div style={{ fontSize: 11, color: '#8B949E', marginBottom: 4 }}>수익금 / 수익률</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: pc }}>
-                  {profit >= 0 ? '+' : ''}{fmtKrw(profit)}&nbsp;<span style={{ fontSize: 16 }}>({profit >= 0 ? '+' : ''}{profitPct.toFixed(2)}%)</span>
+              <div style={{ borderTop: '1px solid #30363D', paddingTop: 12, display: 'flex', gap: 0, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 140 }}>
+                  <div style={{ fontSize: 11, color: '#8B949E', marginBottom: 4 }}>누적 수익금 / 수익률</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: pc }}>
+                    {profit >= 0 ? '+' : ''}{fmtKrw(profit)}
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: pc, marginTop: 2 }}>
+                    {profit >= 0 ? '+' : ''}{profitPct.toFixed(2)}%
+                  </div>
                 </div>
+                {dailyChange != null && (
+                  <div style={{ flex: 1, minWidth: 140, borderLeft: '1px solid #30363D', paddingLeft: 16 }}>
+                    <div style={{ fontSize: 11, color: '#8B949E', marginBottom: 4 }}>전일 대비</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: dpc }}>
+                      {dailyChange >= 0 ? '+' : ''}{fmtKrw(dailyChange)}
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: dpc, marginTop: 2 }}>
+                      {dailyPct != null ? `${dailyPct >= 0 ? '+' : ''}${dailyPct.toFixed(2)}%` : ''}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
