@@ -130,16 +130,19 @@ export default function PortfolioPage() {
 
   // ── 통합 요약 (원화 기준) ──
   const combined = useMemo(() => {
-    let totalCost = 0, totalValue = 0;
+    let totalCost = 0, totalValue = 0, dailyKrw = 0;
     stocks.forEach(s => {
-      const cost = s.shares * s.avgPrice;
-      const value = s.shares * (prices[s.id]?.currentPrice ?? s.avgPrice);
-      totalCost += toKrw(cost, s.currency);
+      const p = prices[s.id];
+      const cost  = s.shares * s.avgPrice;
+      const value = s.shares * (p?.currentPrice ?? s.avgPrice);
+      totalCost  += toKrw(cost,  s.currency);
       totalValue += toKrw(value, s.currency);
+      if (p) dailyKrw += toKrw(s.shares * p.changeAmount, s.currency);
     });
-    const profit = totalValue - totalCost;
+    const profit    = totalValue - totalCost;
     const profitPct = totalCost > 0 ? (profit / totalCost) * 100 : 0;
-    return { totalCost, totalValue, profit, profitPct };
+    const dailyPct  = totalValue > 0 ? (dailyKrw / (totalValue - dailyKrw)) * 100 : 0;
+    return { totalCost, totalValue, profit, profitPct, dailyKrw, dailyPct };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stocks, prices, usdKrw]);
 
@@ -248,11 +251,27 @@ export default function PortfolioPage() {
               <div style={{ fontSize: 15, fontWeight: 600 }}>{fmtKrw(combined.totalValue)}</div>
             </div>
           </div>
-          <div style={{ borderTop: '1px solid #30363D', paddingTop: 14 }}>
-            <div style={{ fontSize: 11, color: '#8B949E', marginBottom: 4 }}>수익금 / 수익률</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: combined.profit > 0 ? '#00C853' : combined.profit < 0 ? '#FF1744' : '#8B949E' }}>
-              {combined.profit >= 0 ? '+' : ''}{fmtKrw(combined.profit)} {fmtPercent(combined.profitPct)}
+          <div style={{ borderTop: '1px solid #30363D', paddingTop: 14, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 130 }}>
+              <div style={{ fontSize: 11, color: '#8B949E', marginBottom: 4 }}>누적 수익금 / 수익률</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: combined.profit > 0 ? '#00C853' : combined.profit < 0 ? '#FF1744' : '#8B949E' }}>
+                {combined.profit >= 0 ? '+' : ''}{fmtKrw(combined.profit)}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: combined.profit > 0 ? '#00C853' : combined.profit < 0 ? '#FF1744' : '#8B949E', marginTop: 2 }}>
+                {fmtPercent(combined.profitPct)}
+              </div>
             </div>
+            {combined.dailyKrw !== 0 && (
+              <div style={{ flex: 1, minWidth: 130, borderLeft: '1px solid #30363D', paddingLeft: 12 }}>
+                <div style={{ fontSize: 11, color: '#8B949E', marginBottom: 4 }}>오늘 수익금 / 등락률</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: combined.dailyKrw > 0 ? '#00C853' : '#FF1744' }}>
+                  {combined.dailyKrw >= 0 ? '+' : ''}{fmtKrw(combined.dailyKrw)}
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: combined.dailyKrw > 0 ? '#00C853' : '#FF1744', marginTop: 2 }}>
+                  {combined.dailyPct >= 0 ? '+' : ''}{combined.dailyPct.toFixed(2)}%
+                </div>
+              </div>
+            )}
           </div>
           {/* 계좌별 비중 */}
           {grouped.length > 1 && combined.totalValue > 0 && (
@@ -326,7 +345,7 @@ export default function PortfolioPage() {
                       )}
                       {displayDaily && (
                         <div style={{ fontSize: 11, color: dpc, marginTop: 1 }}>
-                          전일比 {displayDaily}
+                          오늘 {displayDaily}
                           {s.dailyChangePct != null && <span style={{ marginLeft: 4 }}>({s.dailyChangePct >= 0 ? '+' : ''}{s.dailyChangePct.toFixed(2)}%)</span>}
                         </div>
                       )}

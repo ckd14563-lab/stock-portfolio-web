@@ -1,9 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { PriceData, Stock } from '@/lib/types';
 import { fmtDate } from '@/lib/format';
 import { getStocks } from '@/lib/storage';
+
+type ChartRange = '5d' | '1mo' | '3mo' | '6mo' | '1y' | '5y' | 'max';
+interface ChartPoint { date: string; close: number; }
+interface ChartModal { symbol: string; name: string; currency: string; currentPrice: number; changePercent: number; }
 
 // ─── 지수 ────────────────────────────────────────────────
 const INDEX_GROUPS = [
@@ -120,6 +125,12 @@ export default function MarketPage() {
   const [krCapLoaded,setKrCapLoaded]= useState(false);
   const [capError,   setCapError]   = useState('');
 
+  // 차트 모달
+  const [chartModal,   setChartModal]   = useState<ChartModal | null>(null);
+  const [chartRange,   setChartRange]   = useState<ChartRange>('1y');
+  const [chartData,    setChartData]    = useState<ChartPoint[]>([]);
+  const [chartLoading, setChartLoading] = useState(false);
+
   // 뉴스
   const [newsMode,       setNewsMode]       = useState<NewsMode>('market');
   const [marketNews,     setMarketNews]     = useState<NewsItem[]>([]);
@@ -229,6 +240,22 @@ export default function MarketPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, newsMode]);
 
+  const openChart = (symbol: string, name: string, d: PriceData) => {
+    setChartModal({ symbol, name, currency: d.currency ?? '', currentPrice: d.currentPrice, changePercent: d.changePercent });
+    setChartRange('1y');
+  };
+
+  useEffect(() => {
+    if (!chartModal) return;
+    setChartLoading(true);
+    setChartData([]);
+    fetch(`/api/chart?symbol=${encodeURIComponent(chartModal.symbol)}&range=${chartRange}`)
+      .then(r => r.json())
+      .then(json => setChartData(json.data ?? []))
+      .catch(() => {})
+      .finally(() => setChartLoading(false));
+  }, [chartModal?.symbol, chartRange]);
+
   // ── 헬퍼 ──────────────────────────────────────────────
   const handleRefresh = () => {
     if (tab === 'indices' || tab === 'fx') {
@@ -303,7 +330,9 @@ export default function MarketPage() {
                   const pct = d?.changePercent ?? null;
                   const c = pctColor(pct);
                   return (
-                    <div key={idx.symbol} style={{ background: '#161B22', border: '1px solid #30363D', borderRadius: 10, padding: '12px 12px' }}>
+                    <div key={idx.symbol}
+                      onClick={() => d && openChart(idx.symbol, idx.name, d)}
+                      style={{ background: '#161B22', border: '1px solid #30363D', borderRadius: 10, padding: '12px 12px', cursor: d ? 'pointer' : 'default', WebkitTapHighlightColor: 'transparent' }}>
                       <div style={{ fontSize: 12, color: '#8B949E', marginBottom: 6 }}>{idx.name}</div>
                       {d ? (
                         <>
@@ -332,7 +361,9 @@ export default function MarketPage() {
               const pct = d?.changePercent ?? null;
               const c = pctColor(pct);
               return (
-                <div key={fx.symbol} style={{ background: '#161B22', border: '1px solid #30363D', borderRadius: 10, padding: '12px 10px' }}>
+                <div key={fx.symbol}
+                  onClick={() => d && openChart(fx.symbol, fx.name, d)}
+                  style={{ background: '#161B22', border: '1px solid #30363D', borderRadius: 10, padding: '12px 10px', cursor: d ? 'pointer' : 'default', WebkitTapHighlightColor: 'transparent' }}>
                   <div style={{ fontSize: 10, color: '#8B949E', marginBottom: 4 }}>{fx.flag}</div>
                   <div style={{ fontSize: 11, color: '#8B949E', marginBottom: 6 }}>{fx.name}</div>
                   {d ? (
@@ -531,6 +562,74 @@ export default function MarketPage() {
               )}
             </a>
           ))}
+        </div>
+      )}
+
+      {/* ── 차트 모달 ── */}
+      {chartModal && (
+        <div
+          onClick={() => setChartModal(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 480, background: '#0D1117', borderRadius: '20px 20px 0 0', padding: '20px 16px 32px', maxHeight: '80vh', overflowY: 'auto' }}>
+            {/* 헤더 */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>{chartModal.name}</div>
+                <div style={{ fontSize: 13, color: '#8B949E', marginTop: 2 }}>{chartModal.symbol}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 18, fontWeight: 800 }}>
+                  {chartModal.currency === 'KRW' ? Math.round(chartModal.currentPrice).toLocaleString('ko-KR') : chartModal.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: pctColor(chartModal.changePercent), marginTop: 2 }}>
+                  {fmtPct(chartModal.changePercent)}
+                </div>
+              </div>
+            </div>
+
+            {/* 기간 버튼 */}
+            <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
+              {(['5d','1mo','3mo','6mo','1y','5y','max'] as ChartRange[]).map(r => (
+                <button key={r} onClick={() => setChartRange(r)}
+                  style={{ flex: 1, padding: '6px 2px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                    background: chartRange === r ? '#00C853' : '#161B22',
+                    color: chartRange === r ? '#fff' : '#8B949E' }}>
+                  {r === '5d' ? '5일' : r === '1mo' ? '1달' : r === '3mo' ? '3달' : r === '6mo' ? '6달' : r === '1y' ? '1년' : r === '5y' ? '5년' : '전체'}
+                </button>
+              ))}
+            </div>
+
+            {/* 차트 */}
+            {chartLoading ? (
+              <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8B949E' }}>로딩 중...</div>
+            ) : chartData.length === 0 ? (
+              <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8B949E' }}>데이터 없음</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={chartData} margin={{ top: 4, right: 8, left: 4, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#21262D" />
+                  <XAxis dataKey="date" tick={{ fill: '#8B949E', fontSize: 10 }} axisLine={false} tickLine={false}
+                    tickFormatter={v => v.slice(2, 7).replace('-', '/')} interval="preserveStartEnd" />
+                  <YAxis tick={{ fill: '#8B949E', fontSize: 10 }} axisLine={false} tickLine={false} width={48}
+                    domain={['auto', 'auto']}
+                    tickFormatter={v => v >= 1000 ? v.toLocaleString('ko-KR', { maximumFractionDigits: 0 }) : v.toFixed(2)} />
+                  <Tooltip
+                    contentStyle={{ background: '#161B22', border: '1px solid #30363D', borderRadius: 8, fontSize: 12 }}
+                    labelStyle={{ color: '#8B949E' }}
+                    formatter={(v: number) => [v >= 1000 ? v.toLocaleString('ko-KR', { maximumFractionDigits: 0 }) : v.toFixed(2), '']}
+                  />
+                  <Line type="monotone" dataKey="close" stroke={pctColor(chartModal.changePercent)} strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+
+            <button onClick={() => setChartModal(null)}
+              style={{ width: '100%', marginTop: 16, padding: 12, borderRadius: 12, border: '1px solid #30363D', background: 'transparent', color: '#8B949E', cursor: 'pointer', fontSize: 14 }}>
+              닫기
+            </button>
+          </div>
         </div>
       )}
     </div>
