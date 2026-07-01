@@ -196,14 +196,19 @@ export default function PortfolioPage() {
     return Object.values(groups).map(g => {
       const avgPrice = g.totalCost / g.totalShares;
       const sample = stocks.find(s => s.ticker === g.ticker && s.market === g.market);
-      const cur = sample ? (prices[sample.id]?.currentPrice ?? null) : null;
+      const priceData = sample ? prices[sample.id] : null;
+      const cur = priceData?.currentPrice ?? null;
       const cost = g.totalCost;
       const value = cur != null ? g.totalShares * cur : null;
       const profitAmt = value != null ? value - cost : null;
       const profitPct = profitAmt != null && cost > 0 ? (profitAmt / cost) * 100 : null;
       const valueKrw  = value     != null ? toKrw(value,     g.currency) : null;
       const profitKrw = profitAmt != null ? toKrw(profitAmt, g.currency) : null;
-      return { id: `${g.ticker}_${g.market}`, ticker: g.ticker, market: g.market, name: g.name, currency: g.currency, shares: g.totalShares, avgPrice, cost, value, profitAmt, profitPct, valueKrw, profitKrw };
+      const dailyChangePerShare = priceData?.changeAmount ?? null;
+      const dailyChangePct      = priceData?.changePercent ?? null;
+      const dailyChangeAmt      = dailyChangePerShare != null ? g.totalShares * dailyChangePerShare : null;
+      const dailyChangeKrw      = dailyChangeAmt != null ? toKrw(dailyChangeAmt, g.currency) : null;
+      return { id: `${g.ticker}_${g.market}`, ticker: g.ticker, market: g.market, name: g.name, currency: g.currency, shares: g.totalShares, avgPrice, cost, value, profitAmt, profitPct, valueKrw, profitKrw, dailyChangeAmt, dailyChangePct, dailyChangeKrw };
     }).sort((a, b) => (b.valueKrw ?? 0) - (a.valueKrw ?? 0));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stocks, prices, usdKrw]);
@@ -294,11 +299,15 @@ export default function PortfolioPage() {
             <div style={{ borderTop: '1px solid #21262D' }}>
               {stocksSummary.map((s, i) => {
                 const isUsd = s.currency === 'USD';
-                const pc = s.profitAmt == null ? '#8B949E' : s.profitAmt > 0 ? '#00C853' : s.profitAmt < 0 ? '#FF1744' : '#8B949E';
+                const pc  = s.profitAmt == null ? '#8B949E' : s.profitAmt > 0 ? '#00C853' : s.profitAmt < 0 ? '#FF1744' : '#8B949E';
+                const dpc = s.dailyChangeAmt == null ? '#8B949E' : s.dailyChangeAmt > 0 ? '#00C853' : s.dailyChangeAmt < 0 ? '#FF1744' : '#8B949E';
                 const displayValue = (showKrw && isUsd && s.valueKrw != null) ? fmtKrw(s.valueKrw) : (s.value != null ? fmtCurrency(s.value, s.currency) : '-');
                 const displayProfit = (showKrw && isUsd && s.profitKrw != null)
                   ? `${s.profitKrw >= 0 ? '+' : ''}${fmtKrw(s.profitKrw)}`
                   : s.profitAmt != null ? `${s.profitAmt >= 0 ? '+' : ''}${fmtCurrency(s.profitAmt, s.currency)}` : null;
+                const displayDaily = (showKrw && isUsd && s.dailyChangeKrw != null)
+                  ? `${s.dailyChangeKrw >= 0 ? '+' : ''}${fmtKrw(s.dailyChangeKrw)}`
+                  : s.dailyChangeAmt != null ? `${s.dailyChangeAmt >= 0 ? '+' : ''}${fmtCurrency(s.dailyChangeAmt, s.currency)}` : null;
                 return (
                   <div key={s.id} style={{ display: 'flex', alignItems: 'center', padding: '11px 16px', borderBottom: i < stocksSummary.length - 1 ? '1px solid #21262D' : 'none', gap: 10 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -310,13 +319,19 @@ export default function PortfolioPage() {
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600 }}>{displayValue}</div>
                       {displayProfit && (
-                        <div style={{ fontSize: 12, color: pc, marginTop: 2 }}>
+                        <div style={{ fontSize: 11, color: pc, marginTop: 2 }}>
                           {displayProfit}
-                          {s.profitPct != null && <span style={{ marginLeft: 4, fontSize: 11 }}>({fmtPercent(s.profitPct)})</span>}
+                          {s.profitPct != null && <span style={{ marginLeft: 4 }}>({fmtPercent(s.profitPct)})</span>}
+                        </div>
+                      )}
+                      {displayDaily && (
+                        <div style={{ fontSize: 11, color: dpc, marginTop: 1 }}>
+                          전일比 {displayDaily}
+                          {s.dailyChangePct != null && <span style={{ marginLeft: 4 }}>({s.dailyChangePct >= 0 ? '+' : ''}{s.dailyChangePct.toFixed(2)}%)</span>}
                         </div>
                       )}
                       {showKrw && isUsd && s.value != null && (
-                        <div style={{ fontSize: 11, color: '#8B949E', marginTop: 1 }}>{fmtCurrency(s.value, 'USD')}</div>
+                        <div style={{ fontSize: 10, color: '#8B949E', marginTop: 1 }}>{fmtCurrency(s.value, 'USD')}</div>
                       )}
                     </div>
                   </div>
