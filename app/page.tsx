@@ -33,6 +33,8 @@ interface DivItem {
 const BRAND = '#00C896';
 const UP = '#F04452';
 const DOWN = '#3182F6';
+const WARN = '#FF9500';
+const PROFIT_DRAWDOWN_ALERT_PCT = -30;
 const NEUTRAL = '#8B95A1';
 const BORDER = '#F2F4F6';
 const TEXT = '#191F28';
@@ -148,7 +150,7 @@ export default function PortfolioPage() {
 
   // ── 도미노 스타일 UI 상태 ──
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bigMetricMode, setBigMetricMode] = useState<'daily' | 'total'>('daily');
   const [valueTab, setValueTab] = useState<ValueTab>('eval');
   const [showUsd, setShowUsd] = useState(false);
@@ -194,18 +196,21 @@ export default function PortfolioPage() {
         setPrices(byId);
 
         // 오늘 스냅샷 저장 (포트폴리오 탭 열 때마다 upsert — PC 꺼져도 방문 시 자동 기록)
-        try {
-          let principal = 0, valueKrw = 0;
-          data.forEach(s => {
-            const cur = json[buildSymbol(s.ticker, s.market)]?.currentPrice ?? s.avgPrice;
-            const cost = s.shares * s.avgPrice, val = s.shares * (cur as number);
-            principal += s.currency === 'USD' ? cost * rate : cost;
-            valueKrw  += s.currency === 'USD' ? val  * rate : val;
-          });
-          await fetch('/api/snapshots', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ principal, valueKrw, usdKrw: rate }) });
-          const histRes = await fetch('/api/snapshots');
-          if (histRes.ok) setSnapshots(await histRes.json());
-        } catch { /* ignore */ }
+        // 화면 로딩을 막지 않도록 백그라운드로 처리
+        (async () => {
+          try {
+            let principal = 0, valueKrw = 0;
+            data.forEach(s => {
+              const cur = json[buildSymbol(s.ticker, s.market)]?.currentPrice ?? s.avgPrice;
+              const cost = s.shares * s.avgPrice, val = s.shares * (cur as number);
+              principal += s.currency === 'USD' ? cost * rate : cost;
+              valueKrw  += s.currency === 'USD' ? val  * rate : val;
+            });
+            await fetch('/api/snapshots', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ principal, valueKrw, usdKrw: rate }) });
+            const histRes = await fetch('/api/snapshots');
+            if (histRes.ok) setSnapshots(await histRes.json());
+          } catch { /* ignore */ }
+        })();
       }
     } catch { /* ignore */ }
     finally { setLoading(false); }
@@ -246,7 +251,7 @@ export default function PortfolioPage() {
         setPrices(byId);
       } catch { /* ignore */ }
     };
-    const id = setInterval(refresh, 3_000);
+    const id = setInterval(refresh, 30_000);
     return () => clearInterval(id);
   }, [stocks]);
 
@@ -331,6 +336,26 @@ export default function PortfolioPage() {
     return { totalCost, totalValue, profit, profitPct, dailyKrw, dailyPct };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredStocks, prices, usdKrw]);
+
+  // ── 계좌 필터와 무관한, 전체 포트폴리오 기준 실시간 수익 (역대 최고 수익 대비 하락폭 계산용) ──
+  const allProfit = useMemo(() => {
+    let totalCost = 0, totalValue = 0;
+    stocks.forEach(s => {
+      const p = prices[s.id];
+      const cost  = s.shares * s.avgPrice;
+      const value = s.shares * (p?.currentPrice ?? s.avgPrice);
+      totalCost  += toKrw(cost,  s.currency);
+      totalValue += toKrw(value, s.currency);
+    });
+    return totalValue - totalCost;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stocks, prices, usdKrw]);
+
+  // ── 역대 최고 수익 대비 현재 수익이 몇 % 빠졌는지 ──
+  const profitDrawdownPct = useMemo(() => {
+    const peak = Math.max(...snapshots.map(s => s.valueKrw - s.principal), allProfit);
+    return peak > 0 ? ((allProfit - peak) / peak) * 100 : null;
+  }, [snapshots, allProfit]);
 
   // ── 통화별 요약 (수익 시트) ──
   const summary = useMemo(() => {
@@ -525,7 +550,7 @@ export default function PortfolioPage() {
             </div>
             <div
               onClick={() => setBigMetricMode(m => (m === 'daily' ? 'total' : 'daily'))}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', marginBottom: 26 }}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', marginBottom: 20 }}
             >
               {(() => {
                 const isDaily = bigMetricMode === 'daily';
@@ -541,6 +566,13 @@ export default function PortfolioPage() {
               })()}
               <span style={{ fontSize: 11, color: NEUTRAL, border: `1px solid ${BORDER}`, borderRadius: '50%', width: 14, height: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>i</span>
             </div>
+
+            {profitDrawdownPct != null && profitDrawdownPct <= PROFIT_DRAWDOWN_ALERT_PCT && (
+              <button onClick={() => setSheet('trend')}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FFF4E5', color: WARN, fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 20, marginBottom: 20, border: 'none', cursor: 'pointer' }}>
+                ⚠️ 역대 최고 수익 대비 {Math.abs(profitDrawdownPct).toFixed(0)}% 하락 — 자세히 보기
+              </button>
+            )}
 
             {/* ── 아이콘 메뉴 ── */}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 28 }}>
@@ -806,6 +838,10 @@ export default function PortfolioPage() {
               })();
               const lineData = aggregate(snapshots, period).map(s => ({ label: fmtLabel(s.date, period), 원금: Math.round(s.principal), 평가금액: Math.round(s.valueKrw) }));
 
+              // 역대 최고 수익 대비 현재 수익이 몇 % 빠졌는지 (헤더 경고 배지와 동일한 기준 사용)
+              const peakProfit = Math.max(...snapshots.map(s => s.valueKrw - s.principal), allProfit);
+              const drawdownPct = profitDrawdownPct;
+
               return (
                 <>
                   <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 16 }}>자산 추이</div>
@@ -829,6 +865,24 @@ export default function PortfolioPage() {
                           </div>
                         )}
                       </div>
+                      {drawdownPct != null && (
+                        <div style={{ borderTop: `1px solid ${BORDER}`, marginTop: 10, paddingTop: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                              <div style={{ fontSize: 11, color: NEUTRAL, marginBottom: 2 }}>역대 최고 수익 대비</div>
+                              <div style={{ fontSize: 11, color: NEUTRAL }}>최고 {fmtKrw(peakProfit)}</div>
+                            </div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: drawdownPct === 0 ? BRAND : drawdownPct <= PROFIT_DRAWDOWN_ALERT_PCT ? WARN : DOWN }}>
+                              {drawdownPct === 0 ? '최고치 경신' : `${drawdownPct.toFixed(1)}%`}
+                            </div>
+                          </div>
+                          {drawdownPct <= PROFIT_DRAWDOWN_ALERT_PCT && (
+                            <div style={{ marginTop: 8, padding: '8px 10px', background: '#FFF4E5', borderRadius: 8, fontSize: 12, fontWeight: 700, color: WARN }}>
+                              ⚠️ 최고 수익 대비 {Math.abs(PROFIT_DRAWDOWN_ALERT_PCT)}% 이상 줄었어요
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 

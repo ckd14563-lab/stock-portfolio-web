@@ -5,12 +5,17 @@ import Navbar from '@/components/Navbar';
 export const metadata: Metadata = {
   title: '주식 포트폴리오',
   description: '내 주식 포트폴리오 관리',
+  appleWebApp: {
+    capable: true,
+    title: '포트폴리오',
+    statusBarStyle: 'default',
+  },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#0D1117',
+  themeColor: '#00C896',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

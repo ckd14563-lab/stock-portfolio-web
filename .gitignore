@@ -51,3 +51,4 @@ t_news.cjs
 next-env.d.ts
 
 .vercel
+.env*
